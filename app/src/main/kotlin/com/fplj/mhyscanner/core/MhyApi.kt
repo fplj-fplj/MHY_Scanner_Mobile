@@ -267,6 +267,7 @@ object MhyApi {
         val j = el.jsonObject
         val retcode = j.int("retcode")
         val result = GeetestData()
+        result.message = j.str("message")
         if (retcode == 0) {
             result.actionType = j.obj("data")?.str("action_type") ?: ""
             return retcode to result

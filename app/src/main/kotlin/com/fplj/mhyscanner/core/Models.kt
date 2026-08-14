@@ -58,6 +58,7 @@ data class GeetestData(
     var mmtType: Int = 0,
     var gt: String = "",
     var challenge: String = "",
+    var message: String = "",
     var geetestType: ServerType = ServerType.UNKNOWN
 )
 

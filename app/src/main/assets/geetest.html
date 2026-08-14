@@ -1,43 +1,72 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <style>
   body { margin: 0; padding: 8px; font-family: sans-serif; }
+  #loading { color: #888; font-size: 13px; padding: 10px; }
   #captcha { min-height: 180px; }
 </style>
 </head>
 <body>
+<div id="loading">验证码组件加载中,请稍候…</div>
 <div id="captcha"></div>
 <script>
 var gt = "__GT__";
 var challenge = "__CHALLENGE__";
 
-function startGeetest() {
-  window.initGeetest({
-    gt: gt,
-    challenge: challenge,
-    offline: false,
-    new_captcha: true,
-    product: 'popup',
-    lang: 'zh-cn'
-  }, function (captchaObj) {
-    captchaObj.appendTo('#captcha');
-    captchaObj.onReady(function () {});
-    captchaObj.onSuccess(function () {
-      var result = captchaObj.getValidate();
-      MHY.passed(JSON.stringify(result));
-    });
-    captchaObj.onError(function () { MHY.close(); });
-  });
+function report(obj) {
+  try { MHY.passed(JSON.stringify(obj)); } catch (e) {}
+}
+function fail() {
+  try { MHY.close(); } catch (e) {}
 }
 
-var script = document.createElement('script');
-script.src = 'https://static.geetest.com/static/tools/gt.js';
-script.onload = startGeetest;
-script.onerror = function () { MHY.close(); };
-document.querySelector('head').appendChild(script);
+function startV3() {
+  var s = document.createElement('script');
+  s.src = 'https://static.geetest.com/static/js/gt.0.4.9.js';
+  s.onload = function () {
+    window.initGeetest({
+      gt: gt,
+      challenge: challenge,
+      new_captcha: true,
+      product: 'popup',
+      https: true,
+      lang: 'zh-cn'
+    }, function (cap) {
+      cap.appendTo('#captcha');
+      document.getElementById('loading').style.display = 'none';
+      cap.onReady(function () {});
+      cap.onSuccess(function () { report(cap.getValidate()); });
+      cap.onError(function () { fail(); });
+    });
+  };
+  s.onerror = fail;
+  document.getElementById('captcha').appendChild(s);
+}
+
+function startV4() {
+  var s = document.createElement('script');
+  s.src = 'https://static.geetest.com/v4/geetest.js';
+  s.onload = function () {
+    window.initGeetest4({
+      captchaId: gt,
+      product: 'popup',
+      lang: 'zh-cn'
+    }, function (cap) {
+      cap.appendTo('#captcha');
+      document.getElementById('loading').style.display = 'none';
+      cap.onReady(function () {});
+      cap.onSuccess(function () { report(cap.getValidate()); });
+      cap.onError(function () { fail(); });
+    });
+  };
+  s.onerror = fail;
+  document.getElementById('captcha').appendChild(s);
+}
+
+if (challenge && challenge.length > 0) { startV3(); } else { startV4(); }
 </script>
 </body>
 </html>

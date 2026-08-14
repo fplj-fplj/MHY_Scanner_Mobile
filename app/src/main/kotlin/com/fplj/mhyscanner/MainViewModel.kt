@@ -198,6 +198,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch { _messages.emit("请输入11位手机号") }
             return
         }
+        _lastPhone = phone
         viewModelScope.launch {
             setStatus("发送验证码...")
             try {
@@ -222,7 +223,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     retcode == -3006 -> setStatus("请求过于频繁,请稍后再试")
                     retcode == -3008 -> setStatus("手机号错误")
-                    else -> setStatus("发送失败(retcode=$retcode)")
+                    else -> setStatus("发送失败(retcode=$retcode ${data.message})")
                 }
             } catch (e: Exception) {
                 setStatus("网络异常:${e.message ?: "未知错误"}")
@@ -244,7 +245,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         phoneState = PhoneLoginState(step = 1, actionType = data.actionType)
                     )
                 } else {
-                    setStatus("验证失败(retcode=$retcode)")
+                    setStatus("验证失败(retcode=$retcode ${data.message})")
                     _uiState.value = _uiState.value.copy(phoneState = PhoneLoginState())
                 }
             } catch (e: Exception) {
