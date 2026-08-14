@@ -108,10 +108,10 @@ object MhyApi {
 
     private fun hk4eQrHeaders(): Map<String, String> = mapOf(
         "Content-Type" to "application/json",
-        "User-Agent" to "HYPContainer/1.1.4.133",
+        "User-Agent" to "Mozilla/5.0 (Linux; Android 13) miHoYoBBS/${ApiDefs.MIHOYOBBS_VERSION}",
         "Accept" to "application/json",
-        "x-rpc-app_id" to "ddxf5dufpuyo",
-        "x-rpc-client_type" to "3",
+        "x-rpc-app_id" to "bll8iq97cem8",
+        "x-rpc-client_type" to "2",
         "x-rpc-device_id" to qrLoginDeviceId
     )
 
@@ -228,8 +228,8 @@ object MhyApi {
     fun refreshStoken(stoken: String, uid: String, mid: String = ""): Triple<Int, String, String> {
         val headers = baseHeaders.toMutableMap()
         headers["Cookie"] = if (stoken.startsWith("v2_")) "mid=$mid; stoken=$stoken" else "stuid=$uid; stoken=$stoken"
-        // 该接口 DS gen1,salt 用 prod(参考 nonebot_plugin_mystool)
-        headers["DS"] = DS.gen1(ApiDefs.MIHOYOBBS_SALT_PROD)
+        // 该接口 DS gen2 + PROD salt,body 为 "{}"(对齐 Snap.Hutao LoginBySTokenAsync)
+        headers["DS"] = DS.gen2("{}", "", ApiDefs.MIHOYOBBS_SALT_PROD)
         val j = postJson(ApiDefs.Passport.GET_TOKEN_BY_STOKEN, "{}", headers).jsonObject
         val retcode = j.int("retcode")
         if (retcode != 0) return Triple(retcode, "", "")
