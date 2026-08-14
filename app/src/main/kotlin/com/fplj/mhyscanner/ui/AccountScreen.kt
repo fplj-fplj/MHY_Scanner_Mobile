@@ -53,6 +53,14 @@ fun AccountScreen(vm: MainViewModel) {
     val uiState by vm.uiState.collectAsState()
     var showAdd by rememberSaveable { mutableStateOf(false) }
 
+    // 账号添加成功后自动关闭弹窗并停止扫码轮询
+    LaunchedEffect(Unit) {
+        vm.accountAdded.collect {
+            vm.stopQrLogin()
+            showAdd = false
+        }
+    }
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(
             Modifier.fillMaxWidth(),

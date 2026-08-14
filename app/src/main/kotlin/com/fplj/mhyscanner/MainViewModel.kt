@@ -60,6 +60,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
+    /** 账号添加成功信号,用于让"添加账号"弹窗自动关闭 */
+    private val _accountAdded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val accountAdded: SharedFlow<Unit> = _accountAdded.asSharedFlow()
+
     private var projection: MediaProjection? = null
     private var screenActive = false
     private var qrLoginJob: Job? = null
@@ -163,6 +167,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 )
                             )
                             _messages.emit("账号添加成功")
+                            _accountAdded.emit(Unit)
                             finishAdd()
                             return@launch
                         }
@@ -276,6 +281,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         )
                         _uiState.value = _uiState.value.copy(phoneState = PhoneLoginState())
                         _messages.emit("账号添加成功")
+                        _accountAdded.emit(Unit)
                     }
                     else -> setStatus("登录失败,请稍后再试")
                 }
@@ -309,6 +315,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     configStore.upsertAccount(account)
                     _messages.emit("账号添加成功")
+                    _accountAdded.emit(Unit)
                 }
             } catch (e: Exception) {
                 _messages.emit("网络异常:${e.message ?: "未知错误"}")
@@ -320,39 +327,53 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun startStreamScan(platform: LiveStream.Platform, rid: String) {
         viewModelScope.launch {
-            val target = resolveTarget()
-            if (target == null) {
-                _messages.emit("请先在账号页选择账号")
-                return@launch
+            when (val t = resolveTarget()) {
+                is TargetResult.NoAccount -> {
+                    _messages.emit("请先在账号页选择账号")
+                    return@launch
+                }
+                is TargetResult.Invalid -> {
+                    _messages.emit(t.reason)
+                    return@launch
+                }
+                is TargetResult.Ready -> {
+                    screenActive = false
+                    setStatus("获取直播流地址...")
+                    val info = withContext(Dispatchers.IO) { LiveStream.getStreamInfo(platform, rid) }
+                    if (!info.ok) {
+                        setStatus(info.statusText)
+                        return@launch
+                    }
+                    engine.startStreamScan(info.url, t.target, _uiState.value.config.autoLogin)
+                    _uiState.value = _uiState.value.copy(scanning = true)
+                }
             }
-            screenActive = false
-            setStatus("获取直播流地址...")
-            val info = withContext(Dispatchers.IO) { LiveStream.getStreamInfo(platform, rid) }
-            if (!info.ok) {
-                setStatus(info.statusText)
-                return@launch
-            }
-            engine.startStreamScan(info.url, target, _uiState.value.config.autoLogin)
-            _uiState.value = _uiState.value.copy(scanning = true)
         }
     }
 
     fun startScreenScan(resultCode: Int, data: Intent) {
         viewModelScope.launch {
-            val target = resolveTarget()
-            if (target == null) {
-                _messages.emit("请先在账号页选择账号")
-                return@launch
+            when (val t = resolveTarget()) {
+                is TargetResult.NoAccount -> {
+                    _messages.emit("请先在账号页选择账号")
+                    return@launch
+                }
+                is TargetResult.Invalid -> {
+                    _messages.emit(t.reason)
+                    return@launch
+                }
+                is TargetResult.Ready -> {
+                    val proj = getProjection(resultCode, data)
+                    if (proj == null) {
+                        _messages.emit("屏幕捕获授权失败")
+                        return@launch
+                    }
+                    projection = proj
+                    screenActive = true
+                    engine.startScreenScan(proj, t.target, _uiState.value.config.autoLogin)
+                    _uiState.value = _uiState.value.copy(scanning = true)
+                }
             }
-            val proj = getProjection(resultCode, data)
-            if (proj == null) {
-                _messages.emit("屏幕捕获授权失败")
-                return@launch
-            }
-            projection = proj
-            screenActive = true
-            engine.startScreenScan(proj, target, _uiState.value.config.autoLogin)
-            _uiState.value = _uiState.value.copy(scanning = true)
         }
     }
 
@@ -368,24 +389,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         stopProjection()
     }
 
-    private suspend fun resolveTarget(): ScanEngine.ScanTarget? {
+    private sealed interface TargetResult {
+        object NoAccount : TargetResult
+        data class Invalid(val reason: String) : TargetResult
+        data class Ready(val target: ScanEngine.ScanTarget) : TargetResult
+    }
+
+    private suspend fun resolveTarget(): TargetResult {
         val cfg = _uiState.value.config
-        val account = cfg.account.getOrNull(cfg.lastAccount) ?: return null
+        val account = cfg.account.getOrNull(cfg.lastAccount)
+        if (account == null) {
+            return if (cfg.account.isEmpty()) TargetResult.NoAccount
+            else TargetResult.Invalid("所选账号不存在,请重新选择")
+        }
         return withContext(Dispatchers.IO) {
             when (account.serverType) {
                 ServerType.OFFICIAL -> {
-                    val gameToken = if (account.accessKey.startsWith("v2_")) {
-                        MhyApi.getGameTokenByStoken(account.accessKey, account.mid, account.uid).second
+                    if (account.accessKey.isEmpty()) {
+                        TargetResult.Invalid("该账号缺少登录凭证,请删除后重新添加")
                     } else {
-                        account.accessKey
+                        val gameToken = if (account.accessKey.startsWith("v2_")) {
+                            MhyApi.getGameTokenByStoken(account.accessKey, account.mid, account.uid).second
+                        } else {
+                            account.accessKey
+                        }
+                        if (gameToken.isEmpty()) {
+                            TargetResult.Invalid("该账号凭证已失效,请重新登录后再试")
+                        } else {
+                            TargetResult.Ready(ScanEngine.ScanTarget(ServerType.OFFICIAL, account.uid, gameToken))
+                        }
                     }
-                    if (gameToken.isEmpty()) null
-                    else ScanEngine.ScanTarget(ServerType.OFFICIAL, account.uid, gameToken)
                 }
                 ServerType.BH3_BILI -> {
-                    ScanEngine.ScanTarget(ServerType.BH3_BILI, account.uid, account.accessKey, account.name)
+                    if (account.accessKey.isEmpty()) {
+                        TargetResult.Invalid("该账号缺少登录凭证,请删除后重新添加")
+                    } else {
+                        TargetResult.Ready(
+                            ScanEngine.ScanTarget(ServerType.BH3_BILI, account.uid, account.accessKey, account.name)
+                        )
+                    }
                 }
-                else -> null
+                else -> TargetResult.Invalid("不支持的账号类型,请删除后重新添加")
             }
         }
     }

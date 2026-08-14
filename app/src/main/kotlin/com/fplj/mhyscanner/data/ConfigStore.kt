@@ -42,12 +42,15 @@ class ConfigStore(private val context: Context) {
         val list = config.account.toMutableList()
         val index = list.indexOfFirst { it.uid.isNotEmpty() && it.uid == account.uid }
         if (index >= 0) list[index] = account else list.add(account)
-        save(config.copy(account = list, num = list.size))
+        val selected = if (index >= 0) index else list.size - 1
+        save(config.copy(account = list, num = list.size, lastAccount = selected))
     }
 
     suspend fun removeAccount(uid: String) {
         val config = getConfig()
-        save(config.copy(account = config.account.filterNot { it.uid == uid }, num = config.account.size - 1))
+        val list = config.account.filterNot { it.uid == uid }
+        val last = if (list.isEmpty()) 0 else config.lastAccount.coerceIn(0, list.size - 1)
+        save(config.copy(account = list, num = list.size, lastAccount = last))
     }
 
     suspend fun updateNote(uid: String, note: String) {
