@@ -1,5 +1,13 @@
 package com.fplj.mhyscanner.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -75,11 +83,23 @@ fun AppRoot(vm: MainViewModel, onRequestScreenCapture: () -> Unit) {
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            when (tab) {
-                0 -> LiveScreen(vm)
-                1 -> ScreenScreen(vm, onRequestScreenCapture)
-                2 -> AccountScreen(vm)
-                else -> SettingsScreen(vm)
+            AnimatedContent(
+                targetState = tab,
+                transitionSpec = {
+                    // 进入快、退出更快:ease-out + 轻微上移
+                    (fadeIn(tween(160, easing = LinearOutSlowInEasing)) +
+                        slideInVertically(tween(160, easing = LinearOutSlowInEasing)) { it / 24 }) togetherWith
+                        (fadeOut(tween(90, easing = LinearOutSlowInEasing)) +
+                            slideOutVertically(tween(90, easing = LinearOutSlowInEasing)) { -it / 32 })
+                },
+                label = "tabContent"
+            ) { target ->
+                when (target) {
+                    0 -> LiveScreen(vm)
+                    1 -> ScreenScreen(vm, onRequestScreenCapture)
+                    2 -> AccountScreen(vm)
+                    else -> SettingsScreen(vm)
+                }
             }
         }
     }

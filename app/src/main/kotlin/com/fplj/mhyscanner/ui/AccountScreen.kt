@@ -1,7 +1,11 @@
 package com.fplj.mhyscanner.ui
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,15 +16,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -105,7 +110,18 @@ private fun AccountRow(
 ) {
     var editingNote by remember { mutableStateOf(false) }
 
-    Card(Modifier.fillMaxWidth().clickable { onSelect() }) {
+    Card(
+        Modifier.fillMaxWidth().clickable { onSelect() },
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            }
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 2.dp else 0.dp)
+    ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             RadioButton(selected = selected, onClick = onSelect)
             Column(Modifier.weight(1f)) {
@@ -181,16 +197,29 @@ private fun QrLoginTab(vm: MainViewModel) {
     LaunchedEffect(Unit) { vm.startQrLogin() }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        uiState.qrImage?.let { qr ->
-            Image(
-                bitmap = qr.asImageBitmap(),
-                contentDescription = "登录二维码",
-                modifier = Modifier.size(220.dp)
-            )
+        Crossfade(
+            targetState = uiState.qrImage,
+            animationSpec = tween(220, easing = LinearOutSlowInEasing),
+            label = "qrImage"
+        ) { qr ->
+            Box(Modifier.size(220.dp), contentAlignment = Alignment.Center) {
+                if (qr != null) {
+                    Image(
+                        bitmap = qr.asImageBitmap(),
+                        contentDescription = "登录二维码",
+                        modifier = Modifier.size(220.dp)
+                    )
+                }
+            }
         }
         Text(uiState.qrStatus.ifEmpty { "正在生成二维码…" }, style = MaterialTheme.typography.bodyMedium)
+        val refreshInteractions = remember { MutableInteractionSource() }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { vm.startQrLogin() }) { Text("重新生成") }
+            TextButton(
+                onClick = { vm.startQrLogin() },
+                interactionSource = refreshInteractions,
+                modifier = Modifier.pressScale(refreshInteractions)
+            ) { Text("重新生成") }
         }
         Text("请使用米游社 App 扫码并确认登录", style = MaterialTheme.typography.bodySmall)
     }
@@ -199,6 +228,7 @@ private fun QrLoginTab(vm: MainViewModel) {
 @Composable
 private fun CookieTab(vm: MainViewModel) {
     var cookie by rememberSaveable { mutableStateOf("") }
+    val addInteractions = remember { MutableInteractionSource() }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = cookie,
@@ -207,7 +237,11 @@ private fun CookieTab(vm: MainViewModel) {
             modifier = Modifier.fillMaxWidth(),
             minLines = 4
         )
-        Button(onClick = { vm.addAccountByCookie(cookie); cookie = "" }) { Text("添加") }
+        Button(
+            onClick = { vm.addAccountByCookie(cookie); cookie = "" },
+            interactionSource = addInteractions,
+            modifier = Modifier.fillMaxWidth().pressScale(addInteractions)
+        ) { Text("添加") }
     }
 }
 
@@ -226,6 +260,8 @@ private fun PhoneTab(vm: MainViewModel) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth()
         )
+        val sendInteractions = remember { MutableInteractionSource() }
+        val loginInteractions = remember { MutableInteractionSource() }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = code,
@@ -235,18 +271,21 @@ private fun PhoneTab(vm: MainViewModel) {
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f)
             )
-            Button(onClick = { vm.sendSmsCode(phone) }, enabled = uiState.phoneState.step == 0) {
+            Button(
+                onClick = { vm.sendSmsCode(phone) },
+                enabled = uiState.phoneState.step == 0,
+                interactionSource = sendInteractions,
+                modifier = Modifier.pressScale(sendInteractions)
+            ) {
                 Text("发送验证码")
             }
         }
         Button(
             onClick = { vm.submitSmsCode(phone, code) },
             enabled = uiState.phoneState.step == 1 && code.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
+            interactionSource = loginInteractions,
+            modifier = Modifier.fillMaxWidth().pressScale(loginInteractions)
         ) { Text("确认并登录") }
-        Text(
-            uiState.status.ifEmpty { "" },
-            style = MaterialTheme.typography.bodySmall
-        )
+        StatusPill(uiState.status)
     }
 }

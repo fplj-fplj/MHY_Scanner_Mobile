@@ -1,7 +1,9 @@
 package com.fplj.mhyscanner.ui
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -36,9 +38,12 @@ fun LiveScreen(vm: MainViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("直播抢码", style = MaterialTheme.typography.headlineSmall)
-        Text("解析直播间画面中的米游社登录二维码。输入房间号(RID),开始后会自动拉流并识别二维码。")
+        Text(
+            "解析直播间画面中的米游社登录二维码。输入房间号(RID),开始后会自动拉流并识别二维码。",
+            style = MaterialTheme.typography.bodyMedium
+        )
 
-        androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = platform == 0,
                 onClick = { platform = 0 },
@@ -60,6 +65,7 @@ fun LiveScreen(vm: MainViewModel) {
             modifier = Modifier.fillMaxWidth()
         )
 
+        val primaryInteractions = remember { MutableInteractionSource() }
         if (uiState.scanning) {
             Button(onClick = vm::stopScan) { Text("停止扫描") }
         } else {
@@ -70,13 +76,11 @@ fun LiveScreen(vm: MainViewModel) {
                         rid.trim()
                     )
                 },
-                modifier = Modifier.fillMaxWidth()
+                interactionSource = primaryInteractions,
+                modifier = Modifier.fillMaxWidth().pressScale(primaryInteractions)
             ) { Text("开始扫描") }
         }
 
-        Text(
-            uiState.status.ifEmpty { "等待开始…" },
-            style = MaterialTheme.typography.bodyMedium
-        )
+        StatusPill(uiState.status)
     }
 }

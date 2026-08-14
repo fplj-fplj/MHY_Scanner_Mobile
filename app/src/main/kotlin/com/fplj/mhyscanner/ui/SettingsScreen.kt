@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -31,27 +34,37 @@ fun SettingsScreen(vm: MainViewModel) {
     ) {
         Text("设置", style = MaterialTheme.typography.headlineSmall)
 
-        SwitchRow(
-            title = "自动确认登录",
-            desc = "识别到二维码后直接确认登录",
-            checked = cfg.autoLogin,
-            onChange = { vm.updateSettings(autoLogin = it) }
-        )
-        SwitchRow(
-            title = "登录成功自动退出",
-            desc = "确认登录成功后自动结束进程",
-            checked = cfg.autoExit,
-            onChange = { vm.updateSettings(autoExit = it) }
-        )
-        SwitchRow(
-            title = "识别成功后自动开始",
-            desc = "识别到二维码即开始确认流程",
-            checked = cfg.autoStart,
-            onChange = { vm.updateSettings(autoStart = it) }
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                SwitchRow(
+                    title = "自动确认登录",
+                    desc = "识别到二维码后直接确认登录",
+                    checked = cfg.autoLogin,
+                    onChange = { vm.updateSettings(autoLogin = it) }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SwitchRow(
+                    title = "登录成功自动退出",
+                    desc = "确认登录成功后自动结束进程",
+                    checked = cfg.autoExit,
+                    onChange = { vm.updateSettings(autoExit = it) }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SwitchRow(
+                    title = "识别成功后自动开始",
+                    desc = "识别到二维码即开始确认流程",
+                    checked = cfg.autoStart,
+                    onChange = { vm.updateSettings(autoStart = it) }
+                )
+            }
+        }
 
-        Spacer(Modifier.height(8.dp))
-        HorizontalDivider()
+        Spacer(Modifier.height(12.dp))
         Text("关于", style = MaterialTheme.typography.titleMedium)
         Text("MHY_Scanner_Mobile 是桌面版 MHY_Scanner 的 Android 移植版,遵循 GPL-3.0 开源协议。", style = MaterialTheme.typography.bodyMedium)
         Text("本工具仅供学习研究使用,请勿用于商业用途。" +
@@ -66,7 +79,7 @@ private fun SwitchRow(
     checked: Boolean,
     onChange: (Boolean) -> Unit
 ) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(desc, style = MaterialTheme.typography.bodySmall)
