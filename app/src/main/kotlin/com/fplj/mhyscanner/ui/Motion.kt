@@ -48,6 +48,9 @@ object AppMotion {
     const val StatusMs = 220
     /** 呼吸点周期 */
     const val PulseMs = 900
+    /** 页面切换 */
+    const val PageInMs = 260
+    const val PageOutMs = 180
 
     /** 进入用:快速起步缓出 */
     val Enter = FastOutSlowInEasing
