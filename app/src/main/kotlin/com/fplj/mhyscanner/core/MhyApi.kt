@@ -224,6 +224,22 @@ object MhyApi {
         return 0 to (j.obj("data")?.str("game_token") ?: "")
     }
 
+    /** 刷新 SToken:用旧 stoken(可用 v1/v2)换取新的 V2 stoken,返回 (retcode, newStoken, newMid) */
+    fun refreshStoken(stoken: String, uid: String, mid: String = ""): Triple<Int, String, String> {
+        val headers = baseHeaders.toMutableMap()
+        headers["Cookie"] = if (stoken.startsWith("v2_")) "mid=$mid; stoken=$stoken" else "stuid=$uid; stoken=$stoken"
+        // 该接口 DS gen1,salt 用 prod(参考 nonebot_plugin_mystool)
+        headers["DS"] = DS.gen1(ApiDefs.MIHOYOBBS_SALT_PROD)
+        val j = postJson(ApiDefs.Passport.GET_TOKEN_BY_STOKEN, "{}", headers).jsonObject
+        val retcode = j.int("retcode")
+        if (retcode != 0) return Triple(retcode, "", "")
+        val data = j.obj("data")
+        val newStoken = data?.obj("token")?.str("token") ?: ""
+        val newMid = data?.obj("user_info")?.str("mid") ?: mid
+        if (newStoken.isEmpty()) return Triple(-1, "", "")
+        return Triple(0, newStoken, newMid)
+    }
+
     /** 用 login_ticket 换 stoken+mid,返回 (retcode, stoken, mid) */
     fun getStokenByLoginTicket(loginTicket: String, loginUid: String): Triple<Int, String, String> {
         val url = "${ApiDefs.Takumi.MULTI_TOKEN}?login_ticket=$loginTicket&uid=$loginUid&token_types=3"

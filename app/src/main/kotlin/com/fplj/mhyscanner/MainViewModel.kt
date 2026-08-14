@@ -410,7 +410,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         TargetResult.Invalid("该账号缺少登录凭证,请删除后重新添加")
                     } else {
                         val gameToken = if (account.accessKey.startsWith("v2_")) {
-                            MhyApi.getGameTokenByStoken(account.accessKey, account.mid, account.uid).second
+                            var token = MhyApi.getGameTokenByStoken(account.accessKey, account.mid, account.uid).second
+                            if (token.isEmpty()) {
+                                // 凭证可能因 V2 token 过期失效,尝试自动刷新(获取新 V2 token)后重试
+                                val (code, newStoken, newMid) =
+                                    MhyApi.refreshStoken(account.accessKey, account.uid, account.mid)
+                                if (code == 0 && newStoken.isNotEmpty()) {
+                                    configStore.updateCredentials(account.uid, newStoken, newMid)
+                                    token = MhyApi.getGameTokenByStoken(newStoken, newMid, account.uid).second
+                                }
+                            }
+                            token
                         } else {
                             account.accessKey
                         }

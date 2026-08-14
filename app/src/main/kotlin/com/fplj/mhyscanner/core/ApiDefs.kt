@@ -53,6 +53,7 @@ object ApiDefs {
         const val LOGIN_BY_MOBILE_CAPTCHA = "$BASE/account/ma-cn-passport/app/loginByMobileCaptcha"
         const val CREATE_QR_LOGIN = "$BASE/account/ma-cn-passport/app/createQRLogin"
         const val QUERY_QR_LOGIN_STATUS = "$BASE/account/ma-cn-passport/app/queryQRLoginStatus"
+        const val GET_TOKEN_BY_STOKEN = "$BASE/account/ma-cn-session/app/getTokenBySToken"
     }
 
     object Mys {
