@@ -6,9 +6,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import okhttp3.Headers
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -126,7 +128,7 @@ object MhyApi {
         return (1..length).map { chars.random() }.joinToString("")
     }
 
-    private val JSON = "application/json; charset=utf-8".toMediaTypeCompat()
+    private val JSON = "application/json; charset=utf-8".toMediaType()
 
     // ---------- 米游社扫码登录(添加账号,由手机米游社APP扫) ----------
 
@@ -472,6 +474,4 @@ object MhyApi {
         val j = postJson(ApiDefs.Bh3.QRCODE_CONFIRM, postBody, scanHeaders()).jsonObject
         return if (j.int("retcode") == 0) ScanRet.SUCCESS else ScanRet.FAILURE_2
     }
-
-    private fun String.toMediaTypeCompat(): okhttp3.MediaType = okhttp3.MediaType.parse(this)!!
 }

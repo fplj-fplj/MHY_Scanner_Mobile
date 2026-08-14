@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
+import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.RGBLuminanceSource
@@ -53,7 +54,8 @@ object QrScanner {
 
     /** 将文本渲染为二维码 Bitmap,供"添加账号-手机扫码"使用 */
     fun renderQr(content: String, size: Int = 512): Bitmap? = runCatching {
-        val bits = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, mapOf(DecodeHintType.MARGIN to 1))
+        val hints = mapOf<EncodeHintType, Any>(EncodeHintType.MARGIN to 1)
+        val bits = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         for (x in 0 until size) {
             for (y in 0 until size) {

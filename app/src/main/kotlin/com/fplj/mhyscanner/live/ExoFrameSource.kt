@@ -34,7 +34,8 @@ class ExoFrameSource(
     private var player: ExoPlayer? = null
     private var imageReader: ImageReader? = null
     private val readerReady = AtomicBoolean(false)
-    private val requestedDims = android.util.Size(0, 0)
+    private var requestedWidth = 0
+    private var requestedHeight = 0
 
     override fun open(onFrame: (Frame) -> Unit, onError: (String) -> Unit): Boolean {
         runCatching {
@@ -70,8 +71,9 @@ class ExoFrameSource(
     }
 
     private fun ensureReader(width: Int, height: Int, onFrame: (Frame) -> Unit) {
-        if (readerReady.get() && requestedDims.width == width && requestedDims.height == height) return
-        requestedDims.set(width, height)
+        if (readerReady.get() && requestedWidth == width && requestedHeight == height) return
+        requestedWidth = width
+        requestedHeight = height
 
         imageReader?.close()
         val reader = ImageReader.newInstance(width, height, android.graphics.PixelFormat.RGBA_8888, 3)
