@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  body { margin: 0; padding: 8px; font-family: sans-serif; }
+  #captcha { min-height: 180px; }
+</style>
+</head>
+<body>
+<div id="captcha"></div>
+<script>
+var gt = "__GT__";
+var challenge = "__CHALLENGE__";
+
+function startGeetest() {
+  window.initGeetest({
+    gt: gt,
+    challenge: challenge,
+    offline: false,
+    new_captcha: true,
+    product: 'popup',
+    lang: 'zh-cn'
+  }, function (captchaObj) {
+    captchaObj.appendTo('#captcha');
+    captchaObj.onReady(function () {});
+    captchaObj.onSuccess(function () {
+      var result = captchaObj.getValidate();
+      MHY.passed(JSON.stringify(result));
+    });
+    captchaObj.onError(function () { MHY.close(); });
+  });
+}
+
+var script = document.createElement('script');
+script.src = 'https://static.geetest.com/static/tools/gt.js';
+script.onload = startGeetest;
+script.onerror = function () { MHY.close(); };
+document.querySelector('head').appendChild(script);
+</script>
+</body>
+</html>
