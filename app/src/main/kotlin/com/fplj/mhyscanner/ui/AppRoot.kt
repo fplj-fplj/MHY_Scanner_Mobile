@@ -1,7 +1,6 @@
 package com.fplj.mhyscanner.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,12 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -54,30 +55,34 @@ fun AppRoot(vm: MainViewModel, onRequestScreenCapture: () -> Unit) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                 NavigationBarItem(
                     selected = tab == 0,
                     onClick = { tab = 0 },
                     icon = { Icon(Icons.Filled.PlayArrow, null) },
-                    label = { Text("直播") }
+                    label = { Text("直播") },
+                    colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer)
                 )
                 NavigationBarItem(
                     selected = tab == 1,
                     onClick = { tab = 1 },
-                    icon = { Icon(Icons.Filled.Refresh, null) },
-                    label = { Text("屏幕") }
+                    icon = { Icon(Icons.Filled.Videocam, null) },
+                    label = { Text("屏幕") },
+                    colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer)
                 )
                 NavigationBarItem(
                     selected = tab == 2,
                     onClick = { tab = 2 },
                     icon = { Icon(Icons.Filled.AccountCircle, null) },
-                    label = { Text("账号") }
+                    label = { Text("账号") },
+                    colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer)
                 )
                 NavigationBarItem(
                     selected = tab == 3,
                     onClick = { tab = 3 },
                     icon = { Icon(Icons.Filled.Settings, null) },
-                    label = { Text("设置") }
+                    label = { Text("设置") },
+                    colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer)
                 )
             }
         }
@@ -86,11 +91,11 @@ fun AppRoot(vm: MainViewModel, onRequestScreenCapture: () -> Unit) {
             AnimatedContent(
                 targetState = tab,
                 transitionSpec = {
-                    // 进入快、退出更快:ease-out + 轻微上移
-                    (fadeIn(tween(160, easing = LinearOutSlowInEasing)) +
-                        slideInVertically(tween(160, easing = LinearOutSlowInEasing)) { it / 24 }) togetherWith
-                        (fadeOut(tween(90, easing = LinearOutSlowInEasing)) +
-                            slideOutVertically(tween(90, easing = LinearOutSlowInEasing)) { -it / 32 })
+                    // 进入快、退出更快:轻微上移,保持空间连续感
+                    (fadeIn(tween(AppMotion.PageInMs, easing = AppMotion.Enter)) +
+                        slideInVertically(tween(AppMotion.PageInMs, easing = AppMotion.Enter)) { it / 24 }) togetherWith
+                        (fadeOut(tween(AppMotion.PageOutMs, easing = AppMotion.Exit)) +
+                            slideOutVertically(tween(AppMotion.PageOutMs, easing = AppMotion.Exit)) { -it / 32 })
                 },
                 label = "tabContent"
             ) { target ->

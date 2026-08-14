@@ -38,6 +38,11 @@ private val LightColors = lightColorScheme(
     surfaceVariant = Color(0xFFEEF0F8),
     onSurfaceVariant = Color(0xFF454B5C),
     surfaceTint = Blue,
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF2F4FB),
+    surfaceContainer = Color(0xFFECEEF7),
+    surfaceContainerHigh = Color(0xFFE7E9F3),
+    surfaceContainerHighest = Color(0xFFE1E4EF),
     outline = Color(0xFFB9C0D1),
     outlineVariant = Color(0xFFDBE0EE),
     error = Color(0xFFB3261E),
@@ -66,6 +71,11 @@ private val DarkColors = darkColorScheme(
     surfaceVariant = Color(0xFF232B47),
     onSurfaceVariant = Color(0xFFC2C8DE),
     surfaceTint = BlueBright,
+    surfaceContainerLowest = Color(0xFF10152A),
+    surfaceContainerLow = Color(0xFF171E36),
+    surfaceContainer = Color(0xFF1C233D),
+    surfaceContainerHigh = Color(0xFF222A47),
+    surfaceContainerHighest = Color(0xFF2C3551),
     outline = Color(0xFF6E7690),
     outlineVariant = Color(0xFF3B4360),
     error = Color(0xFFFFB4AB),
@@ -76,9 +86,15 @@ private val DarkColors = darkColorScheme(
 /** 紧凑清晰的排版:小字 12sp、正文 14sp、标题 18sp 突出 */
 private val AppTypography = Typography(
     headlineSmall = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        letterSpacing = (-0.3).sp
+    ),
+    titleLarge = TextStyle(
         fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.sp
     ),
     titleMedium = TextStyle(
@@ -89,22 +105,34 @@ private val AppTypography = Typography(
     bodyLarge = TextStyle(
         fontWeight = FontWeight.Normal,
         fontSize = 15.sp,
-        lineHeight = 22.sp
+        lineHeight = 24.sp
     ),
     bodyMedium = TextStyle(
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 20.sp
+        lineHeight = 22.sp
     ),
     bodySmall = TextStyle(
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
-        lineHeight = 17.sp
+        lineHeight = 18.sp,
+        letterSpacing = 0.2.sp
     ),
     labelLarge = TextStyle(
         fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
+        fontSize = 15.sp,
         lineHeight = 20.sp
+    ),
+    labelMedium = TextStyle(
+        fontWeight = FontWeight.Medium,
+        fontSize = 13.sp,
+        lineHeight = 18.sp
+    ),
+    labelSmall = TextStyle(
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.5.sp
     )
 )
 
