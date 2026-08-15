@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Copy
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -80,7 +80,7 @@ fun LogsScreen(onBack: () -> Unit) {
             TextButton(onClick = {
                 clipboard.setText(AnnotatedString(buildLogText(entries)))
             }) {
-                Icon(Icons.Filled.Copy, null, Modifier.size(16.dp))
+                Icon(Icons.Filled.ContentCopy, null, Modifier.size(16.dp))
                 Spacer(Modifier.width(2.dp))
                 Text("复制")
             }
