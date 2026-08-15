@@ -4,6 +4,14 @@
 
 本项目为 [MHY_Scanner](https://github.com/fplj-fplj/MHY_Scanner) 的 Android 重制版,使用 Kotlin + Jetpack Compose 编写,遵循上游 **GPL-3.0** 协议。
 
+## 鸣谢
+
+本项目参考并借鉴了以下开源项目,在此一并致谢:
+
+- [DSVVA/MHY_Scanner](https://github.com/DSVVA/MHY_Scanner) — 原版 MHY 扫码登录器,支持从直播流抢码
+- [loqwe/MHY_Scanner2](https://github.com/loqwe/MHY_Scanner2) — MHY_Scanner 的二改版,修复新版扫码登录、官服抢码、直播间抢码和账号自检
+- [SnapHutaoRemasteringProject/Snap.Hutao.Remastered](https://github.com/SnapHutaoRemasteringProject/Snap.Hutao.Remastered) — 实用的开源多功能原神工具箱
+
 ## 功能
 
 - 直播抢码:解析 B 站 / 抖音直播间画面中的登录二维码,自动"扫码"并(可选)自动"确认登录"
