@@ -162,6 +162,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 Account(
                                     accessKey = r.gameToken,
                                     uid = r.uid,
+                                    mid = r.mid,
                                     name = name,
                                     type = ServerType.OFFICIAL.toTypeName()
                                 )

@@ -165,6 +165,7 @@ object MhyApi {
         val status = data?.str("stat") ?: ""
         var uid = ""
         var gameToken = ""
+        var mid = ""
         if (status == "Confirmed") {
             val raw = data?.obj("payload")?.str("raw").orEmpty()
             if (raw.isNotEmpty()) {
@@ -172,18 +173,20 @@ object MhyApi {
                     val payload = json.parseToJsonElement(raw).jsonObject
                     uid = payload.str("uid")
                     gameToken = payload.str("token")
+                    mid = payload.str("mid")
                 } catch (_: Exception) {
                 }
             }
         }
-        return QrQueryResult(retcode, status, uid, gameToken)
+        return QrQueryResult(retcode, status, uid, gameToken, mid)
     }
 
     data class QrQueryResult(
         val retcode: Int,
         val status: String = "",
         val uid: String = "",
-        val gameToken: String = ""
+        val gameToken: String = "",
+        val mid: String = ""
     )
 
     // ---------- 基础 ----------
