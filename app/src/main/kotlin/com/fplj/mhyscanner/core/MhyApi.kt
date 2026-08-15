@@ -325,7 +325,7 @@ object MhyApi {
         if (ticket.isEmpty() || tokenTypes.isEmpty()) return false
         val body = buildJsonObject {
             put("ticket", ticket)
-            put("token_types", buildJsonArray { add(tokenTypes) })
+            put("token_types", buildJsonArray { add(JsonPrimitive(tokenTypes)) })
         }.toString()
         val headers = scanHeaders().toMutableMap()
         headers["Cookie"] = "stoken=$stoken; mid=$mid"
