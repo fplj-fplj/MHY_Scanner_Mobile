@@ -140,6 +140,35 @@ private fun SettingsMain(
             }
         }
 
+        AppCard(tonal = true) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                SettingsRow(
+                    title = "鸣谢",
+                    desc = "本项目参考并借鉴了以下开源项目",
+                    icon = Icons.Filled.Info,
+                    onClick = { uriHandler.openUri("https://github.com/DSVVA/MHY_Scanner") }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsRow(
+                    title = "DSVVA/MHY_Scanner",
+                    desc = "原版 MHY 扫码登录器,支持直播流抢码",
+                    onClick = { uriHandler.openUri("https://github.com/DSVVA/MHY_Scanner") }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsRow(
+                    title = "loqwe/MHY_Scanner2",
+                    desc = "MHY_Scanner 二改版,修复新版扫码与直播间抢码",
+                    onClick = { uriHandler.openUri("https://github.com/loqwe/MHY_Scanner2") }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SettingsRow(
+                    title = "Snap.Hutao.Remastered",
+                    desc = "开源多功能原神工具箱",
+                    onClick = { uriHandler.openUri("https://github.com/SnapHutaoRemasteringProject/Snap.Hutao.Remastered") }
+                )
+            }
+        }
+
         AppCard {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(
