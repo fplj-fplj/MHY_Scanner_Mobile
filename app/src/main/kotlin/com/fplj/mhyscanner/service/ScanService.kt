@@ -18,12 +18,14 @@ class ScanService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         instance = this
+        com.fplj.mhyscanner.log.AppLog.info("ScanService", "前台服务启动")
         startForegroundCompat()
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        com.fplj.mhyscanner.log.AppLog.info("ScanService", "前台服务停止")
         instance = null
         stopProjection()
     }
@@ -55,6 +57,9 @@ class ScanService : Service() {
 
         @Volatile
         private var instance: ScanService? = null
+
+        /** 前台服务是否存活(用于后台保活检查) */
+        val isAlive: Boolean get() = instance != null
 
         /** 创建 MediaProjection 并拉起前台服务保活,失败返回 null */
         fun createProjection(context: Context, resultCode: Int, data: Intent): MediaProjection? {

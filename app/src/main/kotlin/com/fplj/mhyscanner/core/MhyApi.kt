@@ -15,12 +15,15 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.fplj.mhyscanner.log.AppLog
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /** 复刻原项目 src/Core/MhyApi.hpp 的全部米哈游接口(纯阻塞,调用方自行切换 IO 线程) */
 object MhyApi {
+
+    private const val logTag = "MhyApi"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -300,8 +303,14 @@ object MhyApi {
             put("ts", System.currentTimeMillis() / 1000)
         }.toString()
         val j = postJson(url, body, scanHeaders()).jsonObject
-        if (j.int("retcode") != 0) return ""
-        return j.obj("data")?.str("passport_qr_url") ?: ""
+        val retcode = j.int("retcode")
+        if (retcode != 0) {
+            AppLog.warn(logTag, "panda qrcode/scan 失败 retcode=$retcode")
+            return ""
+        }
+        val passportUrl = j.obj("data")?.str("passport_qr_url") ?: ""
+        if (passportUrl.isEmpty()) AppLog.warn(logTag, "panda scan 未返回 passport_qr_url")
+        return passportUrl
     }
 
     /** 从 passport 二维码 URL 中解析参数 */
@@ -322,7 +331,10 @@ object MhyApi {
     private fun passportQrLogin(qrCode: String, stoken: String, mid: String, confirm: Boolean): Boolean {
         val ticket = passportQrParam(qrCode, "tk", "&")
         val tokenTypes = passportQrParam(qrCode, "token_types", "#")
-        if (ticket.isEmpty() || tokenTypes.isEmpty()) return false
+        if (ticket.isEmpty() || tokenTypes.isEmpty()) {
+            AppLog.warn(logTag, "passport 二维码缺参 tk=${ticket.length} tokenTypes=${tokenTypes.length}")
+            return false
+        }
         val body = buildJsonObject {
             put("ticket", ticket)
             put("token_types", buildJsonArray { add(JsonPrimitive(tokenTypes)) })
@@ -331,7 +343,9 @@ object MhyApi {
         headers["Cookie"] = "stoken=$stoken; mid=$mid"
         val url = if (confirm) ApiDefs.Passport.CONFIRM_QR_LOGIN else ApiDefs.Passport.SCAN_QR_LOGIN
         val j = postJson(url, body, headers).jsonObject
-        return j.int("retcode") == 0
+        val retcode = j.int("retcode")
+        if (retcode != 0) AppLog.warn(logTag, "passport ${if (confirm) "confirm" else "scan"} 失败 retcode=$retcode")
+        return retcode == 0
     }
 
     /** 抢码确认登录(官服),stoken+mid 换游戏登录(两阶段 panda→passport) */

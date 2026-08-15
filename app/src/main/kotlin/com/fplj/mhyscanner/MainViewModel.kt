@@ -15,6 +15,7 @@ import com.fplj.mhyscanner.data.ConfigStore
 import com.fplj.mhyscanner.data.CookieAccountParser
 import com.fplj.mhyscanner.engine.ScanEngine
 import com.fplj.mhyscanner.live.LiveStream
+import com.fplj.mhyscanner.log.AppLog
 import com.fplj.mhyscanner.scanner.QrScanner
 import com.fplj.mhyscanner.service.ScanService
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +52,7 @@ data class PhoneLoginState(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val logTag = "VM"
     private val configStore = ConfigStore(application)
     private val engine = ScanEngine(application)
 
@@ -112,13 +114,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { configStore.updateNote(uid, note) }
     }
 
-    fun updateSettings(autoLogin: Boolean? = null, autoExit: Boolean? = null, autoStart: Boolean? = null) {
+    fun updateSettings(
+        autoLogin: Boolean? = null,
+        autoExit: Boolean? = null,
+        autoStart: Boolean? = null,
+        floatingLogEnabled: Boolean? = null
+    ) {
         val c = _uiState.value.config
         viewModelScope.launch {
             configStore.updateSettings(
                 autoLogin = autoLogin ?: c.autoLogin,
                 autoExit = autoExit ?: c.autoExit,
-                autoStart = autoStart ?: c.autoStart
+                autoStart = autoStart ?: c.autoStart,
+                floatingLogEnabled = floatingLogEnabled ?: c.floatingLogEnabled
             )
         }
     }
@@ -130,14 +138,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(addingAccount = true)
         qrLoginJob = viewModelScope.launch {
             try {
+                AppLog.info(logTag, "创建 passport 登录二维码")
                 val (url, ticket) = withContext(Dispatchers.IO) { MhyApi.createPassportQRLogin() }
                 if (url.isEmpty() || ticket.isEmpty()) {
+                    AppLog.warn(logTag, "创建 passport 二维码失败(url=${url.length} ticket=${ticket.length})")
                     _messages.emit("获取二维码失败")
                     finishAdd()
                     return@launch
                 }
                 val image = QrScanner.renderQr(url)
                 if (image == null) {
+                    AppLog.error(logTag, "二维码渲染失败")
                     _messages.emit("二维码渲染失败")
                     finishAdd()
                     return@launch
@@ -148,14 +159,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     kotlinx.coroutines.delay(1000)
                     val r = withContext(Dispatchers.IO) { MhyApi.queryPassportQRLoginStatus(ticket) }
                     if (r.retcode != 0 || r.status == "Expired") {
+                        AppLog.warn(logTag, "二维码状态异常: retcode=${r.retcode} status=${r.status}")
                         _uiState.value = _uiState.value.copy(qrStatus = "二维码已过期,请重新添加")
                         break
                     }
                     when (r.status) {
                         "Created" -> {}
-                        "Scanned" -> _uiState.value = _uiState.value.copy(qrStatus = "已扫码,请在手机上确认")
+                        "Scanned" -> {
+                            AppLog.info(logTag, "二维码已被扫码,等待确认")
+                            _uiState.value = _uiState.value.copy(qrStatus = "已扫码,请在手机上确认")
+                        }
                         "Confirmed" -> {
                             if (r.stoken.isEmpty() || r.aid.isEmpty()) {
+                                AppLog.error(logTag, "确认后缺少 stoken/aid")
                                 _uiState.value = _uiState.value.copy(qrStatus = "获取凭证失败,请重新添加")
                                 break
                             }
@@ -171,6 +187,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     type = ServerType.OFFICIAL.toTypeName()
                                 )
                             )
+                            AppLog.info(logTag, "passport 扫码登录成功: uid=${r.aid} name=$name")
                             _messages.emit("账号添加成功")
                             _accountAdded.emit(Unit)
                             finishAdd()
@@ -180,6 +197,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
             } catch (e: Exception) {
+                AppLog.error(logTag, "扫码登录网络异常: ${e.message}")
                 _messages.emit("网络异常:${e.message ?: "未知错误"}")
                 finishAdd()
             }
@@ -207,6 +225,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             setStatus("发送验证码...")
             try {
+                AppLog.info(logTag, "发送验证码 phone=$phone")
                 val (retcode, data) = withContext(Dispatchers.IO) { MhyApi.createLoginCaptcha(phone) }
                 when {
                     retcode == 0 -> {
@@ -230,7 +249,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     retcode == -3008 -> setStatus("手机号错误")
                     else -> setStatus("发送失败(retcode=$retcode ${data.message})")
                 }
+                AppLog.warn(logTag, "发送验证码结果 retcode=$retcode")
             } catch (e: Exception) {
+                AppLog.error(logTag, "发送验证码异常: ${e.message}")
                 setStatus("网络异常:${e.message ?: "未知错误"}")
             }
         }
@@ -250,10 +271,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         phoneState = PhoneLoginState(step = 1, actionType = data.actionType)
                     )
                 } else {
+                    AppLog.warn(logTag, "极验回调失败 retcode=$retcode")
                     setStatus("验证失败(retcode=$retcode ${data.message})")
                     _uiState.value = _uiState.value.copy(phoneState = PhoneLoginState())
                 }
             } catch (e: Exception) {
+                AppLog.error(logTag, "极验回调异常: ${e.message}")
                 setStatus("网络异常:${e.message ?: "未知错误"}")
             }
         }
@@ -269,6 +292,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _lastPhone = phone
         viewModelScope.launch {
             try {
+                AppLog.info(logTag, "提交短信验证码 phone=$phone")
                 val result = withContext(Dispatchers.IO) {
                     MhyApi.loginByMobileCaptcha(_uiState.value.phoneState.actionType, phone, code)
                 }
@@ -286,12 +310,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             )
                         )
                         _uiState.value = _uiState.value.copy(phoneState = PhoneLoginState())
+                        AppLog.info(logTag, "手机号登录成功 uid=${result.aid}")
                         _messages.emit("账号添加成功")
                         _accountAdded.emit(Unit)
                     }
                     else -> setStatus("登录失败,请稍后再试")
                 }
+                if (result.retcode != 0) AppLog.warn(logTag, "短信登录失败 retcode=${result.retcode}")
             } catch (e: Exception) {
+                AppLog.error(logTag, "短信登录异常: ${e.message}")
                 setStatus("网络异常:${e.message ?: "未知错误"}")
             }
         }
@@ -317,13 +344,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 val (err, account) = result
                 if (account == null) {
+                    AppLog.warn(logTag, "Cookie 添加账号失败: $err")
                     _messages.emit(err.ifEmpty { "Cookie格式错误" })
                 } else {
                     configStore.upsertAccount(account)
+                    AppLog.info(logTag, "Cookie 添加账号成功 uid=${account.uid}")
                     _messages.emit("账号添加成功")
                     _accountAdded.emit(Unit)
                 }
             } catch (e: Exception) {
+                AppLog.error(logTag, "Cookie 添加账号异常: ${e.message}")
                 _messages.emit("网络异常:${e.message ?: "未知错误"}")
             }
         }
@@ -339,14 +369,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 is TargetResult.Invalid -> {
+                    AppLog.warn(logTag, "开始直播扫描失败: ${t.reason}")
                     _messages.emit(t.reason)
                     return@launch
                 }
                 is TargetResult.Ready -> {
+                    AppLog.info(logTag, "开始直播扫描 platform=$platform rid=$rid uid=${t.target.uid}")
                     screenActive = false
                     setStatus("获取直播流地址...")
                     val info = withContext(Dispatchers.IO) { LiveStream.getStreamInfo(platform, rid) }
                     if (!info.ok) {
+                        AppLog.warn(logTag, "获取直播流失败: ${info.statusText}")
                         setStatus(info.statusText)
                         return@launch
                     }
@@ -365,12 +398,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 is TargetResult.Invalid -> {
+                    AppLog.warn(logTag, "开始屏幕扫描失败: ${t.reason}")
                     _messages.emit(t.reason)
                     return@launch
                 }
                 is TargetResult.Ready -> {
                     val proj = getProjection(resultCode, data)
                     if (proj == null) {
+                        AppLog.error(logTag, "屏幕捕获授权失败")
                         _messages.emit("屏幕捕获授权失败")
                         return@launch
                     }
@@ -384,12 +419,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun stopScan() {
+        AppLog.info(logTag, "手动停止扫描")
         engine.stop()
         stopProjection()
         setStatus("已停止")
     }
 
     fun confirmLogin(confirm: Boolean) {
+        AppLog.info(logTag, "用户确认登录: confirm=$confirm")
         _uiState.value = _uiState.value.copy(pendingConfirmGame = null)
         engine.confirmLogin(confirm)
         stopProjection()
@@ -460,14 +497,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun showMessage(text: String) {
+        AppLog.info(logTag, "提示: $text")
         viewModelScope.launch { _messages.emit(text) }
     }
 
     private fun setStatus(text: String) {
+        if (text != _uiState.value.status) AppLog.info(logTag, "状态: $text")
         _uiState.value = _uiState.value.copy(status = text)
     }
 
     private suspend fun notifyResult(ret: ScanRet) {
+        AppLog.info(logTag, "扫描结果: $ret")
         setStatus(
             when (ret) {
                 ScanRet.SUCCESS -> "登录成功"

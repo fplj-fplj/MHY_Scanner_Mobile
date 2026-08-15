@@ -21,6 +21,7 @@ data class Config(
     val autoExit: Boolean = false,
     val autoLogin: Boolean = false,
     val autoStart: Boolean = false,
+    val floatingLogEnabled: Boolean = false,
     val account: List<Account> = emptyList(),
     val lastAccount: Int = 0,
     val num: Int = 0

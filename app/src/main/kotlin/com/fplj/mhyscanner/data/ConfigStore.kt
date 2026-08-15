@@ -62,13 +62,19 @@ class ConfigStore(private val context: Context) {
         save(getConfig().copy(lastAccount = index))
     }
 
-    suspend fun updateSettings(autoLogin: Boolean = false, autoExit: Boolean = false, autoStart: Boolean = false) {
+    suspend fun updateSettings(
+        autoLogin: Boolean = false,
+        autoExit: Boolean = false,
+        autoStart: Boolean = false,
+        floatingLogEnabled: Boolean = false
+    ) {
         val config = getConfig()
         save(
             config.copy(
                 autoLogin = autoLogin,
                 autoExit = autoExit,
-                autoStart = autoStart
+                autoStart = autoStart,
+                floatingLogEnabled = floatingLogEnabled
             )
         )
     }
