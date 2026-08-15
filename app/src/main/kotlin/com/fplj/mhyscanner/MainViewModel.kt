@@ -486,8 +486,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun getProjection(resultCode: Int, data: Intent): MediaProjection? =
-        ScanService.createProjection(getApplication(), resultCode, data)
+    private suspend fun getProjection(resultCode: Int, data: Intent): MediaProjection? =
+        ScanService.startProjection(getApplication(), resultCode, data).await()
 
     private fun stopProjection() {
         screenActive = false
