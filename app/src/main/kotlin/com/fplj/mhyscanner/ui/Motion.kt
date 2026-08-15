@@ -30,12 +30,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
@@ -74,8 +75,18 @@ object AppMotion {
 
 /** 系统是否开启"减弱动态效果":开启时动效应退化为轻量淡入淡出。 */
 @Composable
-fun isReduceMotionEnabled(): Boolean =
-    LocalAccessibilityManager.current?.reduceMotion ?: false
+fun isReduceMotionEnabled(): Boolean {
+    val context = LocalContext.current
+    val scale = remember {
+        runCatching {
+            android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE
+            )
+        }.getOrDefault(1f)
+    }
+    return scale == 0f
+}
 
 /**
  * 按压反馈:按住轻微缩小,松开弹簧回弹。
