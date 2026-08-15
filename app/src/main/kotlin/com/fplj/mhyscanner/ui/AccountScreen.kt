@@ -1,7 +1,6 @@
 package com.fplj.mhyscanner.ui
 
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -218,7 +217,7 @@ private fun QrLoginTab(vm: MainViewModel) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Crossfade(
             targetState = uiState.qrImage,
-            animationSpec = tween(220, easing = AppMotion.Enter),
+            animationSpec = AppSpring.Default,
             label = "qrImage"
         ) { qr ->
             Box(Modifier.size(220.dp), contentAlignment = Alignment.Center) {

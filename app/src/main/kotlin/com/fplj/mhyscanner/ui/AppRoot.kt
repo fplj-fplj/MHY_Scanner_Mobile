@@ -1,7 +1,6 @@
 package com.fplj.mhyscanner.ui
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -88,14 +87,20 @@ fun AppRoot(vm: MainViewModel, onRequestScreenCapture: () -> Unit) {
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
+            val reduceMotion = isReduceMotionEnabled()
             AnimatedContent(
                 targetState = tab,
                 transitionSpec = {
-                    // 进入快、退出更快:轻微上移,保持空间连续感
-                    (fadeIn(tween(AppMotion.PageInMs, easing = AppMotion.Enter)) +
-                        slideInVertically(tween(AppMotion.PageInMs, easing = AppMotion.Enter)) { it / 24 }) togetherWith
-                        (fadeOut(tween(AppMotion.PageOutMs, easing = AppMotion.Exit)) +
-                            slideOutVertically(tween(AppMotion.PageOutMs, easing = AppMotion.Exit)) { -it / 32 })
+                    // 页面切换:进出同路径、同节奏的弹簧,方向一致(向上),保持空间连续、可中断。
+                    // 系统减弱动效时退化为纯淡入淡出。
+                    if (reduceMotion) {
+                        (fadeIn(AppSpring.Default) togetherWith fadeOut(AppSpring.Default))
+                    } else {
+                        (fadeIn(AppSpring.Default) +
+                            slideInVertically(AppSpring.Slide) { it / 24 }) togetherWith
+                            (fadeOut(AppSpring.Default) +
+                                slideOutVertically(AppSpring.Slide) { -it / 24 })
+                    }
                 },
                 label = "tabContent"
             ) { target ->

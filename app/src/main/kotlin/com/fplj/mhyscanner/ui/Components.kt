@@ -1,6 +1,5 @@
 package com.fplj.mhyscanner.ui
 
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
@@ -47,18 +46,22 @@ fun AppCard(
     content: @Composable () -> Unit
 ) {
     val shape = RoundedCornerShape(16.dp)
+    val container = if (tonal) MaterialTheme.colorScheme.surfaceContainer
+    else MaterialTheme.colorScheme.surfaceContainerHigh
     if (onClick != null) {
+        val interactions = remember { MutableInteractionSource() }
         Surface(
             onClick = onClick,
+            interactionSource = interactions,
             shape = shape,
-            color = if (tonal) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = container,
             contentColor = MaterialTheme.colorScheme.onSurface,
-            modifier = modifier.fillMaxWidth()
+            modifier = modifier.fillMaxWidth().pressScale(interactions, 0.985f)
         ) { content() }
     } else {
         Surface(
             shape = shape,
-            color = if (tonal) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = container,
             contentColor = MaterialTheme.colorScheme.onSurface,
             modifier = modifier.fillMaxWidth()
         ) { content() }
@@ -185,16 +188,14 @@ fun EmptyState(
     }
 }
 
-/** 选中标记:状态指示用途,150ms 内从 0.85 缩入,不做 scale(0) */
+/** 选中标记:状态指示用途,弹簧缩入,进出同路径、可中断,不做 scale(0) */
 @Composable
 fun SelectionCheck(visible: Boolean, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = fadeIn(tween(150, easing = AppMotion.Enter)) +
-            scaleIn(tween(150, easing = AppMotion.Enter), initialScale = 0.85f),
-        exit = scaleOut(tween(100, easing = AppMotion.Exit)) +
-            fadeOut(tween(100, easing = AppMotion.Exit))
+        enter = fadeIn(AppSpring.Default) + scaleIn(AppSpring.Default, initialScale = 0.85f),
+        exit = scaleOut(AppSpring.Default) + fadeOut(AppSpring.Default)
     ) {
         Box(
             Modifier

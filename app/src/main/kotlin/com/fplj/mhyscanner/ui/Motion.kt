@@ -1,8 +1,7 @@
 package com.fplj.mhyscanner.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -36,33 +35,51 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
-/** 全局动效时长,统一节奏(按压/淡入/状态指示) */
-object AppMotion {
-    /** 按压反馈时长 */
-    const val PressMs = 120
-    /** 小元素进入/淡出 */
-    const val FadeMs = 180
-    /** 状态指示 */
-    const val StatusMs = 220
-    /** 呼吸点周期 */
-    const val PulseMs = 900
-    /** 页面切换 */
-    const val PageInMs = 260
-    const val PageOutMs = 180
+/**
+ * 全局动效节奏。
+ *
+ * 弹簧动画是可中断的:数值被新目标取代时,动画从"当前值"出发重新计算,
+ * 天然支持快速反向与打断,符合"动效始终可中断"的交互原则。
+ */
+object AppSpring {
+    /** 常规 UI 状态变化:临界阻尼(无过冲)+ 适中刚度,response≈0.34s。 */
+    val Default: FiniteAnimationSpec<Float> =
+        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 820f)
 
-    /** 进入用:快速起步缓出 */
-    val Enter = FastOutSlowInEasing
-    /** 退出用:快速结束缓入 */
-    val Exit = FastOutLinearInEasing
-    /** 呼吸点:线性往返 */
+    /** 小元素快速反馈(按压、勾选):临界阻尼,response≈0.25s。 */
+    val Quick: FiniteAnimationSpec<Float> =
+        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+
+    /** 位移过渡(slide 系):与大元素同节奏,可中断。 */
+    val Slide: FiniteAnimationSpec<IntOffset> =
+        spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+
+    /**
+     * 动量手势专用:0.8 阻尼允许轻微过冲。
+     * 仅用于带动量的手势(拖动松手),勿用于普通 UI 变化。
+     */
+    val Momentum: FiniteAnimationSpec<Float> =
+        spring(dampingRatio = 0.8f, stiffness = 1000f)
+}
+
+/** 呼吸圆点周期,仅供 BreathingDot 使用 */
+object AppMotion {
+    const val PulseMs = 900
     val Pulse = LinearEasing
 }
 
+/** 系统是否开启"减弱动态效果":开启时动效应退化为轻量淡入淡出。 */
+@Composable
+fun isReduceMotionEnabled(): Boolean =
+    LocalAccessibilityManager.current?.reduceMotion ?: false
+
 /**
- * 按压反馈:按住轻微缩小(0.97),松开弹簧回弹。
- * 临界阻尼无过冲 + 适中刚度:按压即响应,松开快速归位,
+ * 按压反馈:按住轻微缩小,松开弹簧回弹。
+ * 临界阻尼无过冲 + 适中刚度:按压即响应、可中断、快速归位,
  * 不引入装饰性弹跳(弹跳只留给带惯性的手势)。
  */
 @Composable
@@ -73,20 +90,21 @@ fun Modifier.pressScale(
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (pressed) scaleTo else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
+        animationSpec = AppSpring.Quick,
         label = "pressScale"
     )
     return this.then(Modifier.scale(scale))
 }
 
-/** 扫描/运行中呼吸圆点:仅透明度往返,线性匀速,符合 reduced-motion 温和降级 */
+/** 扫描/运行中呼吸圆点:仅透明度往返,线性匀速;系统减弱动效时退化为静止圆点。 */
 @Composable
 fun BreathingDot(active: Boolean, color: Color, modifier: Modifier = Modifier) {
     if (!active) {
         Box(modifier.size(8.dp).background(color, CircleShape))
+        return
+    }
+    if (isReduceMotionEnabled()) {
+        Box(modifier.size(8.dp).alpha(0.6f).background(color, CircleShape))
         return
     }
     val transition = rememberInfiniteTransition(label = "breath")
@@ -104,32 +122,21 @@ fun BreathingDot(active: Boolean, color: Color, modifier: Modifier = Modifier) {
 
 /**
  * 状态指示条:扫描中呼吸点 + primaryContainer 底,空闲时弱化。
- * 状态变化属偶发反馈,轻量淡入淡出,不外跳。
+ * 状态变化属偶发反馈,以弹簧轻量进出,进出同路径、可中断。
  */
 @Composable
 fun StatusBanner(text: String, active: Boolean = false, modifier: Modifier = Modifier) {
     if (text.isBlank()) return
-    val container = if (active) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.secondaryContainer
-    }
-    val content = if (active) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.onSecondaryContainer
-    }
-    val dot = if (active) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val container = if (active) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.secondaryContainer
+    val content = if (active) MaterialTheme.colorScheme.onPrimaryContainer
+    else MaterialTheme.colorScheme.onSecondaryContainer
+    val dot = if (active) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.onSurfaceVariant
     AnimatedVisibility(
         visible = true,
-        enter = fadeIn(tween(AppMotion.StatusMs, easing = AppMotion.Enter)) +
-            slideInVertically(tween(AppMotion.StatusMs, easing = AppMotion.Enter)) { it / 5 },
-        exit = fadeOut(tween(AppMotion.PressMs, easing = AppMotion.Exit)) +
-            slideOutVertically(tween(AppMotion.PressMs, easing = AppMotion.Exit)) { -it / 5 },
+        enter = fadeIn(AppSpring.Default) + slideInVertically(AppSpring.Slide) { it / 5 },
+        exit = fadeOut(AppSpring.Default) + slideOutVertically(AppSpring.Slide) { -it / 5 },
         modifier = modifier
     ) {
         Surface(
