@@ -18,6 +18,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -36,7 +37,14 @@ fun LiveScreen(vm: MainViewModel) {
     val uiState by vm.uiState.collectAsState()
     var rid by rememberSaveable { mutableStateOf("") }
     var platform by rememberSaveable { mutableIntStateOf(0) }
-    val platforms = listOf("B站直播" to 0, "抖音直播" to 1)
+    val platforms = listOf(
+        "B站直播" to 0,
+        "抖音直播(暂不可用)" to 1
+    )
+
+    LaunchedEffect(platform) {
+        if (platform == 1) platform = 0
+    }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
@@ -53,6 +61,7 @@ fun LiveScreen(vm: MainViewModel) {
                     platforms.forEach { (label, idx) ->
                         Surface(
                             onClick = { platform = idx },
+                            enabled = idx == 0,
                             shape = RoundedCornerShape(12.dp),
                             color = if (platform == idx) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.surfaceVariant,
