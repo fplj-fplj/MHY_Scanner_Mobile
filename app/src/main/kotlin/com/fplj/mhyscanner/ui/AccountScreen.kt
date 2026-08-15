@@ -85,7 +85,10 @@ fun AccountScreen(vm: MainViewModel) {
                 )
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 itemsIndexed(uiState.config.account) { index, acc ->
                     AccountRow(
                         account = acc,

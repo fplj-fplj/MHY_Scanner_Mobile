@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -20,6 +21,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * 基于 ExoPlayer + ImageReader 的直播流抓帧。
  * HLS / FLV / MP4 等均由 Media3 内置解复用器解码,直接消费解码后的 YUV 帧。
+ *
+ * Media3 的 ExoPlayer 必须在主线程创建与访问,这里统一经 mainHandler 调度。
  */
 @UnstableApi
 class ExoFrameSource(
@@ -30,42 +33,48 @@ class ExoFrameSource(
     private val appContext = context.applicationContext
     private val handlerThread = HandlerThread("mhy-stream").apply { start() }
     private val handler = Handler(handlerThread.looper)
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private var player: ExoPlayer? = null
     private var imageReader: ImageReader? = null
     private val readerReady = AtomicBoolean(false)
+    private val closed = AtomicBoolean(false)
     private var requestedWidth = 0
     private var requestedHeight = 0
 
     override fun open(onFrame: (Frame) -> Unit, onError: (String) -> Unit): Boolean {
-        runCatching {
-            val dataSourceFactory = DefaultHttpDataSource.Factory()
-                .setUserAgent("Mozilla/5.0 (Linux; Android 13)")
-            val renderersFactory = DefaultRenderersFactory(appContext)
-            val p = ExoPlayer.Builder(appContext)
-                .setRenderersFactory(renderersFactory)
-                .setMediaSourceFactory(DefaultMediaSourceFactory(appContext).setDataSourceFactory(dataSourceFactory))
-                .build()
-            player = p
+        // 初始化异步在主线程进行;真正失败经 onError 上报
+        mainHandler.post {
+            if (closed.get()) return@post
+            runCatching {
+                val dataSourceFactory = DefaultHttpDataSource.Factory()
+                    .setUserAgent("Mozilla/5.0 (Linux; Android 13)")
+                val renderersFactory = DefaultRenderersFactory(appContext)
+                val p = ExoPlayer.Builder(appContext)
+                    .setLooper(Looper.getMainLooper())
+                    .setRenderersFactory(renderersFactory)
+                    .setMediaSourceFactory(DefaultMediaSourceFactory(appContext).setDataSourceFactory(dataSourceFactory))
+                    .build()
+                player = p
 
-            p.addListener(object : Player.Listener {
-                override fun onVideoSizeChanged(videoSize: VideoSize) {
-                    if (videoSize.width > 0 && videoSize.height > 0) {
-                        ensureReader(videoSize.width, videoSize.height, onFrame)
+                p.addListener(object : Player.Listener {
+                    override fun onVideoSizeChanged(videoSize: VideoSize) {
+                        if (videoSize.width > 0 && videoSize.height > 0) {
+                            ensureReader(videoSize.width, videoSize.height, onFrame)
+                        }
                     }
-                }
 
-                override fun onPlayerError(error: PlaybackException) {
-                    onError(error.errorCodeName)
-                }
-            })
+                    override fun onPlayerError(error: PlaybackException) {
+                        onError(error.errorCodeName)
+                    }
+                })
 
-            p.setMediaItem(MediaItem.fromUri(streamUrl))
-            p.prepare()
-            p.playWhenReady = true
-        }.onFailure {
-            onError(it.message ?: "初始化失败")
-            return false
+                p.setMediaItem(MediaItem.fromUri(streamUrl))
+                p.prepare()
+                p.playWhenReady = true
+            }.onFailure {
+                onError(it.message ?: "初始化失败")
+            }
         }
         return true
     }
@@ -124,10 +133,13 @@ class ExoFrameSource(
     }
 
     override fun close() {
+        closed.set(true)
         readerReady.set(false)
-        runCatching { player?.stop() }
-        runCatching { player?.release() }
-        player = null
+        mainHandler.post {
+            runCatching { player?.stop() }
+            runCatching { player?.release() }
+            player = null
+        }
         runCatching { imageReader?.close() }
         imageReader = null
         handlerThread.quitSafely()

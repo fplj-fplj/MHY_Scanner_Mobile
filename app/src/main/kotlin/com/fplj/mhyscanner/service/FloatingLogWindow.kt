@@ -64,7 +64,7 @@ object FloatingLogWindow {
         val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         val logText = TextView(context).apply {
-            setBackgroundColor(Color.argb(210, 18, 20, 34))
+            setBackgroundColor(Color.argb(232, 24, 24, 24))
             setTextColor(Color.WHITE)
             textSize = 11f
             typeface = Typeface.MONOSPACE
@@ -84,7 +84,7 @@ object FloatingLogWindow {
 
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.argb(210, 40, 48, 84))
+            setBackgroundColor(Color.argb(232, 45, 45, 45))
             setPadding(12, 6, 0, 6)
             addView(
                 TextView(context).apply {
@@ -99,7 +99,7 @@ object FloatingLogWindow {
 
         val container = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.argb(210, 18, 20, 34))
+            setBackgroundColor(Color.argb(232, 24, 24, 24))
             addView(header)
             addView(logText)
         }

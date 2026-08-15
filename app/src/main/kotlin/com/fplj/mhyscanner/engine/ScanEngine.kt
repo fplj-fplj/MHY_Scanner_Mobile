@@ -88,6 +88,7 @@ class ScanEngine(private val context: Context) {
                 if (running) {
                     AppLog.error(logTag, "直播流错误: $msg")
                     _events.tryEmit(ScanEvent.Error(msg))
+                    stopInternal()
                 }
             })) {
                 AppLog.error(logTag, "直播流打开失败")
