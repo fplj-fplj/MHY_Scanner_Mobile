@@ -36,19 +36,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.fplj.mhyscanner.log.AppLog
 import com.fplj.mhyscanner.log.LogEntry
 import kotlinx.coroutines.launch
 
-/** 日志查看页:倒序自动跟随,可暂停跟随 / 复制 / 清空 */
+/** 日志查看页:倒序自动跟随,可暂停跟随 / 复制 / 清空;可回顾上次运行(崩溃前)日志 */
 @Composable
 fun LogsScreen(onBack: () -> Unit) {
     val entries by AppLog.entries.collectAsState()
+    val history by AppLog.history.collectAsState()
     val listState = rememberLazyListState()
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     var follow by rememberSaveable { mutableStateOf(true) }
+    var showHistory by rememberSaveable { mutableStateOf(false) }
 
     // 新日志到来时若处于跟随状态,则回到最新一行
     LaunchedEffect(entries.size) {
@@ -60,6 +63,10 @@ fun LogsScreen(onBack: () -> Unit) {
         snapshotFlow { listState.firstVisibleItemIndex }.collect { idx ->
             if (idx != 0) follow = false
         }
+    }
+
+    val items = remember(entries, history, showHistory) {
+        if (showHistory) history + entries else entries
     }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
@@ -78,13 +85,36 @@ fun LogsScreen(onBack: () -> Unit) {
                 modifier = Modifier.weight(1f).padding(start = 4.dp)
             )
             TextButton(onClick = {
-                clipboard.setText(AnnotatedString(buildLogText(entries)))
+                clipboard.setText(AnnotatedString(buildLogText(items)))
             }) {
                 Icon(Icons.Filled.ContentCopy, null, Modifier.size(16.dp))
                 Spacer(Modifier.width(2.dp))
                 Text("复制")
             }
             TextButton(onClick = { AppLog.clear() }) { Text("清空") }
+        }
+
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = { showHistory = false }) {
+                Text("本次", color = if (!showHistory) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextButton(onClick = { showHistory = true }) {
+                Text("含上次运行", color = if (showHistory) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (showHistory) {
+                Text(
+                    "上次运行 ${history.size} 条",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.End
+                )
+            }
         }
 
         LazyColumn(
@@ -94,7 +124,15 @@ fun LogsScreen(onBack: () -> Unit) {
             contentPadding = PaddingValues(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            itemsIndexed(entries.asReversed()) { _, entry ->
+            itemsIndexed(items.asReversed()) { index, entry ->
+                if (showHistory && index == entries.size) {
+                    Text(
+                        "───── 本次运行 / 上次运行 ─────",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                    )
+                }
                 LogRow(entry)
             }
         }

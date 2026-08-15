@@ -133,7 +133,8 @@ object FloatingLogWindow {
                     val dy = event.rawY - lastY
                     val p = layoutParams
                     if (p != null) {
-                        p.x = (startX + dx).toInt()
+                        // gravity 为 TOP|END:x 从屏幕右缘测量,右移时 x 应减小
+                        p.x = (startX - dx).toInt()
                         p.y = (startY + dy).toInt()
                         runCatching { wm.updateViewLayout(container, p) }
                     }
