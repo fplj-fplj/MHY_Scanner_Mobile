@@ -53,14 +53,6 @@ class ConfigStore(private val context: Context) {
         save(config.copy(account = list, num = list.size, lastAccount = last))
     }
 
-    /** 账号凭证自动刷新后落库(只更新 accessKey/mid,不动其它字段) */
-    suspend fun updateCredentials(uid: String, accessKey: String, mid: String) {
-        val config = getConfig()
-        save(config.copy(account = config.account.map {
-            if (it.uid == uid) it.copy(accessKey = accessKey, mid = mid) else it
-        }))
-    }
-
     suspend fun updateNote(uid: String, note: String) {
         val config = getConfig()
         save(config.copy(account = config.account.map { if (it.uid == uid) it.copy(note = note) else it }))

@@ -54,7 +54,8 @@ class ScanEngine(private val context: Context) {
     data class ScanTarget(
         val serverType: ServerType,
         val uid: String,
-        val gameToken: String,
+        val stoken: String = "",
+        val mid: String = "",
         val uname: String = ""
     )
 
@@ -62,7 +63,8 @@ class ScanEngine(private val context: Context) {
         val entry: QrGameEntry?,
         val ticket: String,
         val target: ScanTarget,
-        val bh3: Boolean
+        val bh3: Boolean,
+        val passportUrl: String = ""
     )
 
     val isRunning: Boolean get() = running
@@ -148,7 +150,8 @@ class ScanEngine(private val context: Context) {
             when (target.serverType) {
                 ServerType.OFFICIAL -> {
                     val entry = QrGameMap.match(tag) ?: return
-                    if (!MhyApi.scanQrLogin(entry.scanUrl, ticket, entry.gameType)) {
+                    val passportUrl = MhyApi.pandaScanQrLogin(entry.scanUrl, ticket, entry.gameType)
+                    if (passportUrl.isEmpty()) {
                         _events.emit(ScanEvent.Result(ScanRet.FAILURE_1))
                         stopInternal()
                         return
@@ -156,12 +159,12 @@ class ScanEngine(private val context: Context) {
                     lastTicket = ticket
                     _events.emit(ScanEvent.QrDetected(entry.gameType.name))
                     if (currentAutoLogin) {
-                        val ok = MhyApi.confirmQrLogin(
-                            entry.confirmUrl, target.uid, target.gameToken, ticket, entry.gameType
+                        val ok = MhyApi.confirmOfficialQrLogin(
+                            entry.scanUrl, ticket, entry.gameType, target.stoken, target.mid
                         )
                         _events.emit(ScanEvent.Result(if (ok) ScanRet.SUCCESS else ScanRet.FAILURE_2))
                     } else {
-                        pendingConfirm = PendingConfirm(entry, ticket, target, bh3 = false)
+                        pendingConfirm = PendingConfirm(entry, ticket, target, bh3 = false, passportUrl = passportUrl)
                         _events.emit(ScanEvent.ConfirmRequest(entry.gameType.name))
                     }
                     stopInternal()
@@ -177,7 +180,7 @@ class ScanEngine(private val context: Context) {
                     lastTicket = ticket
                     _events.emit(ScanEvent.QrDetected(GameType.HONKAI3_BILI.name))
                     if (currentAutoLogin) {
-                        val ret = MhyApi.scanConfirm(ticket, target.uid, target.gameToken, target.uname)
+                        val ret = MhyApi.scanConfirm(ticket, target.uid, target.stoken, target.uname)
                         _events.emit(ScanEvent.Result(ret))
                     } else {
                         pendingConfirm = PendingConfirm(null, ticket, target, bh3 = true)
@@ -204,12 +207,13 @@ class ScanEngine(private val context: Context) {
         }
         scope.launch {
             val ret = if (p.bh3) {
-                MhyApi.scanConfirm(p.ticket, p.target.uid, p.target.gameToken, p.target.uname)
+                MhyApi.scanConfirm(p.ticket, p.target.uid, p.target.stoken, p.target.uname)
             } else if (p.entry != null) {
-                if (MhyApi.confirmQrLogin(
-                        p.entry.confirmUrl, p.target.uid, p.target.gameToken, p.ticket, p.entry.gameType
-                    )
-                ) ScanRet.SUCCESS else ScanRet.FAILURE_2
+                if (MhyApi.confirmPassportQrLogin(p.passportUrl, p.target.stoken, p.target.mid)) {
+                    ScanRet.SUCCESS
+                } else {
+                    ScanRet.FAILURE_2
+                }
             } else {
                 ScanRet.FAILURE_2
             }

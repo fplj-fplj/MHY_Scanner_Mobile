@@ -5,6 +5,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -106,15 +107,6 @@ object MhyApi {
         "x-rpc-sdk_version" to "2.16.0"
     )
 
-    private fun hk4eQrHeaders(): Map<String, String> = mapOf(
-        "Content-Type" to "application/json",
-        "User-Agent" to "Mozilla/5.0 (Linux; Android 13) miHoYoBBS/${ApiDefs.MIHOYOBBS_VERSION}",
-        "Accept" to "application/json",
-        "x-rpc-app_id" to "bll8iq97cem8",
-        "x-rpc-client_type" to "2",
-        "x-rpc-device_id" to qrLoginDeviceId
-    )
-
     private fun scanHeaders(): Map<String, String> {
         val h = baseHeaders.toMutableMap()
         h["Content-Type"] = "application/json"
@@ -130,62 +122,56 @@ object MhyApi {
 
     private val JSON = "application/json; charset=utf-8".toMediaType()
 
-    // ---------- 米游社扫码登录(添加账号,由手机米游社APP扫) ----------
+    // ---------- 米游社扫码登录(添加账号,由手机米游社APP扫,HoyoPlay/passport 启动器方案) ----------
 
-    /** 创建原神扫码登录二维码,返回 (url, ticket) */
-    fun createHK4EQRLogin(): Pair<String, String> {
-        val body = buildJsonObject {
-            put("app_id", "8")
-            put("device", qrLoginDeviceId)
-        }.toString()
-        val j = postJson(ApiDefs.Hk4e.QRCODE_FETCH, body, hk4eQrHeaders()).jsonObject
+    private fun passportQrHeaders(): Map<String, String> = mapOf(
+        "Content-Type" to "application/json",
+        "User-Agent" to "HYPContainer/1.1.4.133",
+        "Accept" to "application/json",
+        "x-rpc-app_id" to "ddxf5dufpuyo",
+        "x-rpc-client_type" to "3",
+        "x-rpc-device_id" to qrLoginDeviceId
+    )
+
+    /** 创建米游社登录二维码,返回 (url, ticket) */
+    fun createPassportQRLogin(): Pair<String, String> {
+        val j = postJson(ApiDefs.Passport.CREATE_QR_LOGIN, "{}", passportQrHeaders()).jsonObject
         if (j.int("retcode") != 0) return "" to ""
-        val url = j.obj("data")?.str("url") ?: ""
-        var ticket = ""
-        val pos = url.indexOf("ticket=")
-        if (pos != -1) {
-            val rest = url.substring(pos + 7)
-            val end = rest.indexOf('&')
-            ticket = if (end == -1) rest else rest.substring(0, end)
-        }
-        return url to ticket
+        return (j.obj("data")?.str("url") ?: "") to (j.obj("data")?.str("ticket") ?: "")
     }
 
-    /** 查询扫码状态,返回 (retcode, status, uid, gameToken) */
-    fun queryHK4EQRLoginStatus(ticket: String): QrQueryResult {
+    /** 查询扫码状态,确认后返回 stoken_v2 + aid + mid(不再依赖 game_token) */
+    fun queryPassportQRLoginStatus(ticket: String): PassportQrQueryResult {
         val body = buildJsonObject {
-            put("app_id", "8")
-            put("device", qrLoginDeviceId)
             put("ticket", ticket)
         }.toString()
-        val j = postJson(ApiDefs.Hk4e.QRCODE_QUERY, body, hk4eQrHeaders()).jsonObject
+        val j = postJson(ApiDefs.Passport.QUERY_QR_LOGIN_STATUS, body, passportQrHeaders()).jsonObject
         val retcode = j.int("retcode")
-        if (retcode != 0) return QrQueryResult(retcode)
+        if (retcode != 0) return PassportQrQueryResult(retcode)
         val data = j.obj("data")
-        val status = data?.str("stat") ?: ""
-        var uid = ""
-        var gameToken = ""
+        val status = data?.str("status") ?: ""
+        var stoken = ""
+        var aid = ""
         var mid = ""
         if (status == "Confirmed") {
-            val raw = data?.obj("payload")?.str("raw").orEmpty()
-            if (raw.isNotEmpty()) {
-                try {
-                    val payload = json.parseToJsonElement(raw).jsonObject
-                    uid = payload.str("uid")
-                    gameToken = payload.str("token")
-                    mid = payload.str("mid")
-                } catch (_: Exception) {
+            val tokens = data?.get("tokens")
+            if (tokens is JsonArray) {
+                for (element in tokens) {
+                    val item = element.jsonObject
+                    if (item.int("token_type") == 1) stoken = item.str("token")
                 }
             }
+            aid = data?.obj("user_info")?.str("aid") ?: ""
+            mid = data?.obj("user_info")?.str("mid") ?: ""
         }
-        return QrQueryResult(retcode, status, uid, gameToken, mid)
+        return PassportQrQueryResult(retcode, status, stoken, aid, mid)
     }
 
-    data class QrQueryResult(
+    data class PassportQrQueryResult(
         val retcode: Int,
         val status: String = "",
-        val uid: String = "",
-        val gameToken: String = "",
+        val stoken: String = "",
+        val aid: String = "",
         val mid: String = ""
     )
 
@@ -197,50 +183,6 @@ object MhyApi {
         val j = getJson("${ApiDefs.Mys.USERINFO}?uid=$uid", headers).jsonObject
         if (j.int("retcode") != 0) return ""
         return j.obj("data")?.obj("user_info")?.str("nickname") ?: ""
-    }
-
-    /** 用 game_token 换 stoken,返回 (retcode, mid, stoken) */
-    fun getStokenByGameToken(uid: String, gameToken: String): Triple<Int, String, String> {
-        val body = buildJsonObject {
-            put("account_id", uid.toIntOrNull() ?: 0)
-            put("game_token", gameToken)
-        }.toString()
-        val j = postJson(ApiDefs.Takumi.GAME_TOKEN_STOKEN, body, baseHeaders).jsonObject
-        val retcode = j.int("retcode")
-        if (retcode != 0) return Triple(retcode, "", "")
-        val data = j.obj("data")
-        val mid = data?.obj("user_info")?.str("mid") ?: ""
-        val stoken = data?.obj("token")?.str("token") ?: ""
-        return Triple(0, mid, stoken)
-    }
-
-    /** 用 stoken 换 game_token(V2 必须带 mid,V1 带 stuid),返回 (retcode, game_token) */
-    fun getGameTokenByStoken(stoken: String, mid: String, stuid: String = ""): Pair<Int, String> {
-        val cookie = if (stoken.startsWith("v2_")) "mid=$mid; stoken=$stoken" else "stuid=$stuid; stoken=$stoken"
-        val headers = baseHeaders.toMutableMap()
-        headers["Cookie"] = cookie
-        headers["Referer"] = "https://app.mihoyo.com"
-        headers["DS"] = DS.gen1(ApiDefs.MIHOYOBBS_SALT_K2)
-        val j = getJson(ApiDefs.Takumi.GAME_TOKEN, headers).jsonObject
-        val retcode = j.int("retcode")
-        if (retcode != 0) return retcode to ""
-        return 0 to (j.obj("data")?.str("game_token") ?: "")
-    }
-
-    /** 刷新 SToken:用旧 stoken(可用 v1/v2)换取新的 V2 stoken,返回 (retcode, newStoken, newMid) */
-    fun refreshStoken(stoken: String, uid: String, mid: String = ""): Triple<Int, String, String> {
-        val headers = baseHeaders.toMutableMap()
-        headers["Cookie"] = if (stoken.startsWith("v2_")) "mid=$mid; stoken=$stoken" else "stuid=$uid; stoken=$stoken"
-        // 该接口 DS gen2 + PROD salt,body 为 "{}"(对齐 Snap.Hutao LoginBySTokenAsync)
-        headers["DS"] = DS.gen2("{}", "", ApiDefs.MIHOYOBBS_SALT_PROD)
-        val j = postJson(ApiDefs.Passport.GET_TOKEN_BY_STOKEN, "{}", headers).jsonObject
-        val retcode = j.int("retcode")
-        if (retcode != 0) return Triple(retcode, "", "")
-        val data = j.obj("data")
-        val newStoken = data?.obj("token")?.str("token") ?: ""
-        val newMid = data?.obj("user_info")?.str("mid") ?: mid
-        if (newStoken.isEmpty()) return Triple(-1, "", "")
-        return Triple(0, newStoken, newMid)
     }
 
     /** 用 login_ticket 换 stoken+mid,返回 (retcode, stoken, mid) */
@@ -346,40 +288,69 @@ object MhyApi {
         )
     }
 
-    // ---------- 抢码:扫码登录 / 确认登录(官服) ----------
+    // ---------- 抢码(官服):panda scan 换 passport 二维码 + passport 确认登录 ----------
 
-    fun scanQrLogin(url: String, ticket: String, gameType: GameType): Boolean {
+    /** 第一步:panda qrcode/scan,返回 passport_qr_url(空表示失败) */
+    fun pandaScanQrLogin(url: String, ticket: String, gameType: GameType): String {
         val body = buildJsonObject {
+            put("passport_app_id", "bll8iq97cem8")
+            put("ticket", ticket)
             put("app_id", gameType.value)
             put("device", deviceId)
-            put("ticket", ticket)
+            put("ts", System.currentTimeMillis() / 1000)
         }.toString()
         val j = postJson(url, body, scanHeaders()).jsonObject
+        if (j.int("retcode") != 0) return ""
+        return j.obj("data")?.str("passport_qr_url") ?: ""
+    }
+
+    /** 从 passport 二维码 URL 中解析参数 */
+    private fun passportQrParam(qrCode: String, key: String, terminators: String): String {
+        val needle = "$key="
+        val begin = qrCode.indexOf(needle)
+        if (begin == -1) return ""
+        val valueBegin = begin + needle.length
+        var valueEnd = qrCode.length
+        for (c in terminators) {
+            val idx = qrCode.indexOf(c, valueBegin)
+            if (idx != -1 && idx < valueEnd) valueEnd = idx
+        }
+        return qrCode.substring(valueBegin, valueEnd)
+    }
+
+    /** 第二步:passport scan / confirm,用 stoken+mid 确认登录(passport 两阶段,无需 game_token) */
+    private fun passportQrLogin(qrCode: String, stoken: String, mid: String, confirm: Boolean): Boolean {
+        val ticket = passportQrParam(qrCode, "tk", "&")
+        val tokenTypes = passportQrParam(qrCode, "token_types", "#")
+        if (ticket.isEmpty() || tokenTypes.isEmpty()) return false
+        val body = buildJsonObject {
+            put("ticket", ticket)
+            put("token_types", buildJsonArray { add(tokenTypes) })
+        }.toString()
+        val headers = scanHeaders().toMutableMap()
+        headers["Cookie"] = "stoken=$stoken; mid=$mid"
+        val url = if (confirm) ApiDefs.Passport.CONFIRM_QR_LOGIN else ApiDefs.Passport.SCAN_QR_LOGIN
+        val j = postJson(url, body, headers).jsonObject
         return j.int("retcode") == 0
     }
 
-    fun confirmQrLogin(
-        url: String,
-        uid: String,
-        gameToken: String,
+    /** 抢码确认登录(官服),stoken+mid 换游戏登录(两阶段 panda→passport) */
+    fun confirmOfficialQrLogin(
+        scanUrl: String,
         ticket: String,
-        gameType: GameType
+        gameType: GameType,
+        stoken: String,
+        mid: String
     ): Boolean {
-        val payloadRaw = buildJsonObject {
-            put("uid", uid)
-            put("token", gameToken)
-        }.toString()
-        val body = buildJsonObject {
-            put("app_id", gameType.value)
-            put("device", deviceId)
-            put("ticket", ticket)
-            put("payload", buildJsonObject {
-                put("proto", "Account")
-                put("raw", payloadRaw)
-            })
-        }.toString()
-        val j = postJson(url, body, scanHeaders()).jsonObject
-        return j.int("retcode") == 0
+        val passportUrl = pandaScanQrLogin(scanUrl, ticket, gameType)
+        if (passportUrl.isEmpty()) return false
+        return confirmPassportQrLogin(passportUrl, stoken, mid)
+    }
+
+    /** 使用已换取的 passport 二维码完成 scan+confirm(passport 两阶段) */
+    fun confirmPassportQrLogin(passportUrl: String, stoken: String, mid: String): Boolean {
+        if (!passportQrLogin(passportUrl, stoken, mid, confirm = false)) return false
+        return passportQrLogin(passportUrl, stoken, mid, confirm = true)
     }
 
     // ---------- 崩坏3B服 抢码 ----------

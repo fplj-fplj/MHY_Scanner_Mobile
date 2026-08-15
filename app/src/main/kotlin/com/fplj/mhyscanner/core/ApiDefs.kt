@@ -23,9 +23,6 @@ object ApiDefs {
         const val BASE = "$API_SDK/hk4e_cn"
         const val QRCODE_SCAN = "$BASE/combo/panda/qrcode/scan"
         const val QRCODE_CONFIRM = "$BASE/combo/panda/qrcode/confirm"
-        const val SDK_BASE = "https://hk4e-sdk.mihoyo.com/hk4e_cn"
-        const val QRCODE_FETCH = "$SDK_BASE/combo/panda/qrcode/fetch"
-        const val QRCODE_QUERY = "$SDK_BASE/combo/panda/qrcode/query"
     }
 
     object Hkrpg {
@@ -43,8 +40,6 @@ object ApiDefs {
     object Takumi {
         const val BASE = "https://api-takumi.mihoyo.com"
         const val MULTI_TOKEN = "$BASE/auth/api/getMultiTokenByLoginTicket"
-        const val GAME_TOKEN = "$BASE/auth/api/getGameToken"
-        const val GAME_TOKEN_STOKEN = "$BASE/account/ma-cn-session/app/getTokenByGameToken"
     }
 
     object Passport {
@@ -53,7 +48,8 @@ object ApiDefs {
         const val LOGIN_BY_MOBILE_CAPTCHA = "$BASE/account/ma-cn-passport/app/loginByMobileCaptcha"
         const val CREATE_QR_LOGIN = "$BASE/account/ma-cn-passport/app/createQRLogin"
         const val QUERY_QR_LOGIN_STATUS = "$BASE/account/ma-cn-passport/app/queryQRLoginStatus"
-        const val GET_TOKEN_BY_STOKEN = "$BASE/account/ma-cn-session/app/getTokenBySToken"
+        const val SCAN_QR_LOGIN = "$BASE/account/ma-cn-passport/app/scanQRLogin"
+        const val CONFIRM_QR_LOGIN = "$BASE/account/ma-cn-passport/app/confirmQRLogin"
     }
 
     object Mys {

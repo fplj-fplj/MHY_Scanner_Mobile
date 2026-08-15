@@ -130,7 +130,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(addingAccount = true)
         qrLoginJob = viewModelScope.launch {
             try {
-                val (url, ticket) = withContext(Dispatchers.IO) { MhyApi.createHK4EQRLogin() }
+                val (url, ticket) = withContext(Dispatchers.IO) { MhyApi.createPassportQRLogin() }
                 if (url.isEmpty() || ticket.isEmpty()) {
                     _messages.emit("获取二维码失败")
                     finishAdd()
@@ -146,22 +146,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 while (isActive) {
                     kotlinx.coroutines.delay(1000)
-                    val r = withContext(Dispatchers.IO) { MhyApi.queryHK4EQRLoginStatus(ticket) }
+                    val r = withContext(Dispatchers.IO) { MhyApi.queryPassportQRLoginStatus(ticket) }
                     if (r.retcode != 0 || r.status == "Expired") {
                         _uiState.value = _uiState.value.copy(qrStatus = "二维码已过期,请重新添加")
                         break
                     }
                     when (r.status) {
-                        "Init" -> {}
+                        "Created" -> {}
                         "Scanned" -> _uiState.value = _uiState.value.copy(qrStatus = "已扫码,请在手机上确认")
                         "Confirmed" -> {
+                            if (r.stoken.isEmpty() || r.aid.isEmpty()) {
+                                _uiState.value = _uiState.value.copy(qrStatus = "获取凭证失败,请重新添加")
+                                break
+                            }
                             val name = withContext(Dispatchers.IO) {
-                                runCatching { MhyApi.getMysUserName(r.uid) }.getOrDefault(r.uid)
+                                runCatching { MhyApi.getMysUserName(r.aid) }.getOrDefault(r.aid)
                             }
                             configStore.upsertAccount(
                                 Account(
-                                    accessKey = r.gameToken,
-                                    uid = r.uid,
+                                    accessKey = r.stoken,
+                                    uid = r.aid,
                                     mid = r.mid,
                                     name = name,
                                     type = ServerType.OFFICIAL.toTypeName()
@@ -410,25 +414,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (account.accessKey.isEmpty()) {
                         TargetResult.Invalid("该账号缺少登录凭证,请删除后重新添加")
                     } else {
-                        val gameToken = if (account.accessKey.startsWith("v2_")) {
-                            var token = MhyApi.getGameTokenByStoken(account.accessKey, account.mid, account.uid).second
-                            if (token.isEmpty()) {
-                                // 凭证可能因 V2 token 过期失效,尝试自动刷新(获取新 V2 token)后重试
-                                val (code, newStoken, newMid) =
-                                    MhyApi.refreshStoken(account.accessKey, account.uid, account.mid)
-                                if (code == 0 && newStoken.isNotEmpty()) {
-                                    configStore.updateCredentials(account.uid, newStoken, newMid)
-                                    token = MhyApi.getGameTokenByStoken(newStoken, newMid, account.uid).second
-                                }
-                            }
-                            token
+                        val stoken = account.accessKey
+                        val mid = account.mid
+                        if (stoken.isEmpty()) {
+                            TargetResult.Invalid("该账号缺少登录凭证,请删除后重新添加")
                         } else {
-                            account.accessKey
-                        }
-                        if (gameToken.isEmpty()) {
-                            TargetResult.Invalid("该账号凭证已失效,请重新登录后再试")
-                        } else {
-                            TargetResult.Ready(ScanEngine.ScanTarget(ServerType.OFFICIAL, account.uid, gameToken))
+                            TargetResult.Ready(
+                                ScanEngine.ScanTarget(
+                                    serverType = ServerType.OFFICIAL,
+                                    uid = account.uid,
+                                    stoken = stoken,
+                                    mid = mid
+                                )
+                            )
                         }
                     }
                 }
@@ -437,7 +435,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         TargetResult.Invalid("该账号缺少登录凭证,请删除后重新添加")
                     } else {
                         TargetResult.Ready(
-                            ScanEngine.ScanTarget(ServerType.BH3_BILI, account.uid, account.accessKey, account.name)
+                            ScanEngine.ScanTarget(
+                                serverType = ServerType.BH3_BILI,
+                                uid = account.uid,
+                                stoken = account.accessKey,
+                                uname = account.name
+                            )
                         )
                     }
                 }
